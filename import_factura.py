@@ -47,7 +47,7 @@ def decodeCIF(originalCIF):
         return originalCIF
 
 def importar():
-    dbf = ydbf.open(os.path.join('dbf', 'FacCliT.dbf'), encoding='latin-1')
+    dbf = ydbf.open(os.path.join('dbfs', 'FacCliT.dbf'), encoding='latin-1')
     for row in dbf:
 
         # COMPROBAR SI ESTA EL CLIENTE
@@ -56,6 +56,8 @@ def importar():
         partner_id = partner_obj.browse([('name','=',row['CNOMCLI'].strip())])
         if partner_id:
             partner_id[0].ref = row['CCODCLI'].strip()
+            if not partner_id[0].customer:
+                partner_id[0].customer = True
             partner_id = partner_id[0].id
 
         # partner_id = partner_obj.search([('ref','=',row['CCODCLI'].strip())])
@@ -82,8 +84,9 @@ def importar():
                 'opt_out': True,
                 'street': row['CDIRCLI'].strip(),
                 'zip': row['CPTLCLI'].strip(),
-                'city':row['CPOBCLI'],
-                'country_id': country_id
+                'city': row['CPOBCLI'],
+                'country_id': country_id,
+                # 'company_id': company_id.id
 
             }
 
@@ -93,18 +96,32 @@ def importar():
             partner = partner_obj.create(partner)
             partner_id = partner.id
 
-        # CREACION DE FACTURAS
-
-        invoice_vals = {
-            'name': str(row['NNUMFAC']),
-            'account_id': customerAccount.id,
-            'partner_id': partner_id,
-            'date_invoice':row['DFECFAC'].strftime("%Y-%m-%d"),
-
-
-        }
         invoice_obj = origen.model('account.invoice')
-        invoice_id = invoice_obj.create(invoice_vals)
+        #CREACION DE FACTURAS RECTIFICATIVAS
+        if 'Abono' in row['COBSERV']:
+            invoice_rect_vals = {
+                    'name': str(row['CSERIE']) + '0' + str(row['NNUMFAC']),
+                    # 'account_id': invoice_id[0].account_id.id,
+                    'partner_id': partner_id,
+                    'date_invoice': row['DFECFAC'].strftime("%Y-%m-%d"),
+                    'type': 'out_refund',
+                    # 'company_id': company_id.id
+            }
+            invoice_obj.create(invoice_rect_vals)
+        else:
+            #CREACION DE FACTURAS
+
+            invoice_vals = {
+                'name': str(row['CSERIE']) + '0' + str(row['NNUMFAC']),
+                # 'account_id': customerAccount.id,
+                'partner_id': partner_id,
+                'date_invoice': row['DFECFAC'].strftime("%Y-%m-%d"),
+                'type': 'out_invoice',
+                # 'company_id': company_id.id
+
+
+            }
+            invoice_obj.create(invoice_vals)
 
 
 
